@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-13
+
+### Added
+- `Verifier#verify_header!` — parses and verifies header strings, raises `VerificationError` on failure
+- `Verifier#valid?` — boolean wrapper around `verify!` (returns true/false, never raises)
+- `Verifier#valid_header?` — boolean wrapper around `verify_header!` (returns true/false, never raises)
+
 ## [0.1.0] - 2026-03-10
 
 ### Added

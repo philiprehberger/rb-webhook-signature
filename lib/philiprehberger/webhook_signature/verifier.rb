@@ -58,6 +58,42 @@ module Philiprehberger
         true
       end
 
+      # Verify a header string or raise on failure.
+      #
+      # @param payload [String] the raw payload body
+      # @param header [String] the header value in "t=TIMESTAMP,v1=SIGNATURE" format
+      # @param tolerance [Integer, nil] max age in seconds
+      # @raise [VerificationError] if verification fails
+      # @return [true]
+      def verify_header!(payload, header:, tolerance: DEFAULT_TOLERANCE)
+        parsed = parse_header(header)
+        raise VerificationError, "Invalid header format" unless parsed
+
+        verify!(payload, timestamp: parsed[:timestamp], signature: parsed[:signature], tolerance: tolerance)
+      end
+
+      # Boolean wrapper around verify!.
+      #
+      # @param (see #verify)
+      # @return [Boolean]
+      def valid?(payload, timestamp:, signature:, tolerance: DEFAULT_TOLERANCE)
+        verify!(payload, timestamp: timestamp, signature: signature, tolerance: tolerance)
+      rescue VerificationError
+        false
+      end
+
+      # Boolean wrapper around verify_header!.
+      #
+      # @param payload [String] the raw payload body
+      # @param header [String] the header value in "t=TIMESTAMP,v1=SIGNATURE" format
+      # @param tolerance [Integer, nil] max age in seconds
+      # @return [Boolean]
+      def valid_header?(payload, header:, tolerance: DEFAULT_TOLERANCE)
+        verify_header!(payload, header: header, tolerance: tolerance)
+      rescue VerificationError
+        false
+      end
+
       private
 
       def compute_signature(payload, timestamp)
