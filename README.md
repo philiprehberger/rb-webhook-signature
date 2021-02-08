@@ -3,6 +3,7 @@
 [![Tests](https://github.com/philiprehberger/rb-webhook-signature/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-webhook-signature/actions/workflows/ci.yml)
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-webhook_signature.svg)](https://rubygems.org/gems/philiprehberger-webhook_signature)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-webhook-signature)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 HMAC-SHA256 webhook signing and verification with replay prevention
 
@@ -122,4 +123,4 @@ bundle exec rubocop
 
 ## License
 
-MIT
+[MIT](LICENSE)
