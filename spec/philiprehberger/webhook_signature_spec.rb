@@ -1,0 +1,169 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+
+RSpec.describe Philiprehberger::WebhookSignature do
+  let(:secret) { "test_secret_key_12345" }
+  let(:payload) { '{"event":"test","data":{"id":1}}' }
+  let(:timestamp) { 1_710_000_000 }
+
+  it "has a version number" do
+    expect(Philiprehberger::WebhookSignature::VERSION).not_to be_nil
+  end
+
+  describe ".sign and .verify" do
+    it "signs and verifies a payload" do
+      result = described_class.sign(payload, secret: secret, timestamp: timestamp)
+
+      valid = described_class.verify(
+        payload,
+        secret: secret,
+        timestamp: result[:timestamp],
+        signature: result[:signature],
+        tolerance: nil
+      )
+
+      expect(valid).to be true
+    end
+
+    it "rejects a tampered payload" do
+      result = described_class.sign(payload, secret: secret, timestamp: timestamp)
+
+      valid = described_class.verify(
+        "tampered",
+        secret: secret,
+        timestamp: result[:timestamp],
+        signature: result[:signature],
+        tolerance: nil
+      )
+
+      expect(valid).to be false
+    end
+
+    it "rejects a wrong secret" do
+      result = described_class.sign(payload, secret: secret, timestamp: timestamp)
+
+      valid = described_class.verify(
+        payload,
+        secret: "wrong_secret",
+        timestamp: result[:timestamp],
+        signature: result[:signature],
+        tolerance: nil
+      )
+
+      expect(valid).to be false
+    end
+  end
+end
+
+RSpec.describe Philiprehberger::WebhookSignature::Signer do
+  let(:secret) { "test_secret" }
+  let(:signer) { described_class.new(secret) }
+  let(:payload) { "test payload" }
+  let(:timestamp) { 1_710_000_000 }
+
+  it "raises on empty secret" do
+    expect { described_class.new("") }.to raise_error(ArgumentError)
+    expect { described_class.new(nil) }.to raise_error(ArgumentError)
+  end
+
+  describe "#sign" do
+    it "returns timestamp and signature" do
+      result = signer.sign(payload, timestamp: timestamp)
+      expect(result[:timestamp]).to eq(timestamp)
+      expect(result[:signature]).to be_a(String)
+      expect(result[:signature].length).to eq(64) # SHA256 hex digest
+    end
+
+    it "produces deterministic signatures" do
+      sig1 = signer.sign(payload, timestamp: timestamp)[:signature]
+      sig2 = signer.sign(payload, timestamp: timestamp)[:signature]
+      expect(sig1).to eq(sig2)
+    end
+
+    it "produces different signatures for different timestamps" do
+      sig1 = signer.sign(payload, timestamp: 1000)[:signature]
+      sig2 = signer.sign(payload, timestamp: 2000)[:signature]
+      expect(sig1).not_to eq(sig2)
+    end
+  end
+
+  describe "#sign_header" do
+    it "returns a formatted header string" do
+      header = signer.sign_header(payload, timestamp: timestamp)
+      expect(header).to match(/\At=\d+,v1=[a-f0-9]{64}\z/)
+    end
+  end
+end
+
+RSpec.describe Philiprehberger::WebhookSignature::Verifier do
+  let(:secret) { "test_secret" }
+  let(:signer) { Philiprehberger::WebhookSignature::Signer.new(secret) }
+  let(:verifier) { described_class.new(secret) }
+  let(:payload) { "test payload" }
+
+  it "raises on empty secret" do
+    expect { described_class.new("") }.to raise_error(ArgumentError)
+  end
+
+  describe "#verify" do
+    it "returns true for valid signatures" do
+      result = signer.sign(payload, timestamp: Time.now.to_i)
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature])).to be true
+    end
+
+    it "returns false for invalid signatures" do
+      expect(verifier.verify(payload, timestamp: Time.now.to_i, signature: "invalid")).to be false
+    end
+
+    it "returns false for stale timestamps" do
+      old_time = Time.now.to_i - 600
+      result = signer.sign(payload, timestamp: old_time)
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature],
+                                      tolerance: 300)).to be false
+    end
+
+    it "skips replay check when tolerance is nil" do
+      old_time = Time.now.to_i - 99_999
+      result = signer.sign(payload, timestamp: old_time)
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature],
+                                      tolerance: nil)).to be true
+    end
+  end
+
+  describe "#verify_header" do
+    it "verifies a valid header" do
+      header = signer.sign_header(payload, timestamp: Time.now.to_i)
+      expect(verifier.verify_header(payload, header: header)).to be true
+    end
+
+    it "rejects an invalid header" do
+      expect(verifier.verify_header(payload, header: "t=0,v1=invalid")).to be false
+    end
+
+    it "rejects a malformed header" do
+      expect(verifier.verify_header(payload, header: "garbage")).to be false
+    end
+  end
+
+  describe "#verify!" do
+    it "returns true for valid signatures" do
+      result = signer.sign(payload, timestamp: Time.now.to_i)
+      expect(verifier.verify!(payload, timestamp: result[:timestamp], signature: result[:signature])).to be true
+    end
+
+    it "raises VerificationError for invalid signatures" do
+      expect do
+        verifier.verify!(payload, timestamp: Time.now.to_i, signature: "invalid")
+      end.to raise_error(Philiprehberger::WebhookSignature::VerificationError, /mismatch/)
+    end
+
+    it "raises VerificationError for stale timestamps" do
+      old_time = Time.now.to_i - 600
+      result = signer.sign(payload, timestamp: old_time)
+      expect do
+        verifier.verify!(payload, timestamp: result[:timestamp], signature: result[:signature])
+      end.to raise_error(Philiprehberger::WebhookSignature::VerificationError, /too old/)
+    end
+  end
+end
