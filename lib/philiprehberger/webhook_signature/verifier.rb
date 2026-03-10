@@ -76,7 +76,14 @@ module Philiprehberger
       end
 
       def parse_header(header)
-        parts = header.split(",").to_h { |part| part.split("=", 2) }
+        parts = {}
+        header.split(",").each do |part|
+          key, value = part.split("=", 2)
+          next unless value
+
+          parts[key] = value
+        end
+
         timestamp = parts["t"]&.to_i
         signature = parts["v1"]
 
