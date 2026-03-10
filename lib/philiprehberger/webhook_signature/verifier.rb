@@ -69,10 +69,10 @@ module Philiprehberger
         (Time.now.to_i - timestamp).abs > tolerance
       end
 
-      def secure_compare(a, b)
-        return false unless a.bytesize == b.bytesize
+      def secure_compare(expected, actual)
+        return false unless expected.bytesize == actual.bytesize
 
-        OpenSSL.fixed_length_secure_compare(a, b)
+        OpenSSL.fixed_length_secure_compare(expected, actual)
       end
 
       def parse_header(header)
