@@ -146,6 +146,58 @@ RSpec.describe Philiprehberger::WebhookSignature::Verifier do
     end
   end
 
+  describe "#verify_header!" do
+    it "returns true for a valid header" do
+      header = signer.sign_header(payload, timestamp: Time.now.to_i)
+      expect(verifier.verify_header!(payload, header: header)).to be true
+    end
+
+    it "raises VerificationError for an invalid header signature" do
+      expect do
+        verifier.verify_header!(payload, header: "t=#{Time.now.to_i},v1=invalid")
+      end.to raise_error(Philiprehberger::WebhookSignature::VerificationError, /mismatch/)
+    end
+
+    it "raises VerificationError for a malformed header" do
+      expect do
+        verifier.verify_header!(payload, header: "garbage")
+      end.to raise_error(Philiprehberger::WebhookSignature::VerificationError, /Invalid header format/)
+    end
+  end
+
+  describe "#valid?" do
+    it "returns true for valid signatures" do
+      result = signer.sign(payload, timestamp: Time.now.to_i)
+      expect(verifier.valid?(payload, timestamp: result[:timestamp], signature: result[:signature])).to be true
+    end
+
+    it "returns false for invalid signatures" do
+      expect(verifier.valid?(payload, timestamp: Time.now.to_i, signature: "invalid")).to be false
+    end
+
+    it "returns false for stale timestamps" do
+      old_time = Time.now.to_i - 600
+      result = signer.sign(payload, timestamp: old_time)
+      expect(verifier.valid?(payload, timestamp: result[:timestamp], signature: result[:signature],
+                                      tolerance: 300)).to be false
+    end
+  end
+
+  describe "#valid_header?" do
+    it "returns true for a valid header" do
+      header = signer.sign_header(payload, timestamp: Time.now.to_i)
+      expect(verifier.valid_header?(payload, header: header)).to be true
+    end
+
+    it "returns false for an invalid header" do
+      expect(verifier.valid_header?(payload, header: "t=0,v1=invalid")).to be false
+    end
+
+    it "returns false for a malformed header" do
+      expect(verifier.valid_header?(payload, header: "garbage")).to be false
+    end
+  end
+
   describe "#verify!" do
     it "returns true for valid signatures" do
       result = signer.sign(payload, timestamp: Time.now.to_i)

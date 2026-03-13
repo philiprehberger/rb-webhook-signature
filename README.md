@@ -74,6 +74,14 @@ verifier.verify_header(payload, header: "t=1710000000,v1=a1b2c3...")
 # Verify and raise on failure
 verifier.verify!(payload, timestamp: ts, signature: sig)
 # raises VerificationError on failure
+
+# Verify header and raise on failure
+verifier.verify_header!(payload, header: "t=1710000000,v1=a1b2c3...")
+# raises VerificationError on failure
+
+# Boolean helpers (return true/false, never raise)
+verifier.valid?(payload, timestamp: ts, signature: sig)
+verifier.valid_header?(payload, header: "t=1710000000,v1=a1b2c3...")
 ```
 
 ### Replay Prevention
@@ -105,6 +113,9 @@ verifier.verify(payload, timestamp: ts, signature: sig, tolerance: nil)
 | `Verifier#verify(payload, timestamp:, signature:, tolerance:)` | Verify, returns boolean |
 | `Verifier#verify_header(payload, header:, tolerance:)` | Verify a header string |
 | `Verifier#verify!(payload, timestamp:, signature:, tolerance:)` | Verify or raise |
+| `Verifier#verify_header!(payload, header:, tolerance:)` | Verify a header string or raise |
+| `Verifier#valid?(payload, timestamp:, signature:, tolerance:)` | Boolean verify (never raises) |
+| `Verifier#valid_header?(payload, header:, tolerance:)` | Boolean header verify (never raises) |
 
 ## Development
 
