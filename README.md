@@ -18,12 +18,6 @@ Add to your Gemfile:
 gem "philiprehberger-webhook_signature"
 ```
 
-Then run:
-
-```bash
-bundle install
-```
-
 Or install directly:
 
 ```bash
