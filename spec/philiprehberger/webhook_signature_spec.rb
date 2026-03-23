@@ -218,4 +218,80 @@ RSpec.describe Philiprehberger::WebhookSignature::Verifier do
       end.to raise_error(Philiprehberger::WebhookSignature::VerificationError, /too old/)
     end
   end
+
+  describe "#verify with empty payload" do
+    it "signs and verifies an empty payload" do
+      result = signer.sign("", timestamp: Time.now.to_i)
+      expect(verifier.verify("", timestamp: result[:timestamp], signature: result[:signature])).to be true
+    end
+  end
+
+  describe "#verify with different tolerance windows" do
+    it "accepts signature within custom tolerance" do
+      ts = Time.now.to_i - 50
+      result = signer.sign(payload, timestamp: ts)
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature],
+                                      tolerance: 60)).to be true
+    end
+
+    it "rejects signature outside custom tolerance" do
+      ts = Time.now.to_i - 120
+      result = signer.sign(payload, timestamp: ts)
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature],
+                                      tolerance: 60)).to be false
+    end
+
+    it "accepts with tolerance of 1 second when timestamp is current" do
+      ts = Time.now.to_i
+      result = signer.sign(payload, timestamp: ts)
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature],
+                                      tolerance: 1)).to be true
+    end
+  end
+
+  describe "#verify with tampered signature" do
+    it "rejects a signature with one character changed" do
+      result = signer.sign(payload, timestamp: Time.now.to_i)
+      tampered = result[:signature].chars
+      tampered[0] = tampered[0] == "a" ? "b" : "a"
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: tampered.join)).to be false
+    end
+
+    it "rejects a truncated signature" do
+      result = signer.sign(payload, timestamp: Time.now.to_i)
+      truncated = result[:signature][0..31]
+      expect(verifier.verify(payload, timestamp: result[:timestamp], signature: truncated)).to be false
+    end
+  end
+
+  describe "#verify with different secrets" do
+    it "fails verification when verifier uses different secret" do
+      other_verifier = described_class.new("different_secret")
+      result = signer.sign(payload, timestamp: Time.now.to_i)
+      expect(other_verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature],
+                                            tolerance: nil)).to be false
+    end
+  end
+
+  describe "#verify_header with extra fields" do
+    it "handles header with extra key-value pairs" do
+      header = signer.sign_header(payload, timestamp: Time.now.to_i)
+      header_with_extra = "#{header},extra=value"
+      expect(verifier.verify_header(payload, header: header_with_extra)).to be true
+    end
+  end
+
+  describe "#verify_header with missing parts" do
+    it "returns false when timestamp is missing" do
+      expect(verifier.verify_header(payload, header: "v1=abc123")).to be false
+    end
+
+    it "returns false when signature is missing" do
+      expect(verifier.verify_header(payload, header: "t=12345")).to be false
+    end
+
+    it "returns false for empty header" do
+      expect(verifier.verify_header(payload, header: "")).to be false
+    end
+  end
 end
