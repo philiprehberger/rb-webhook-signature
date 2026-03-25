@@ -4,7 +4,7 @@
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-webhook_signature.svg)](https://rubygems.org/gems/philiprehberger-webhook_signature)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-webhook-signature)](LICENSE)
 
-HMAC-SHA256 webhook signing and verification with replay prevention for Ruby.
+HMAC-SHA256 webhook signing and verification with replay prevention
 
 ## Requirements
 
