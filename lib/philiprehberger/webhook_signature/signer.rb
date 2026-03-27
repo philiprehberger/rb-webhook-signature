@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "openssl"
-require "time"
+require 'openssl'
+require 'time'
 
 module Philiprehberger
   module WebhookSignature
@@ -9,7 +9,7 @@ module Philiprehberger
     class Signer
       # @param secret [String] the shared secret key
       def initialize(secret)
-        raise ArgumentError, "Secret must be a non-empty string" if secret.nil? || secret.empty?
+        raise ArgumentError, 'Secret must be a non-empty string' if secret.nil? || secret.empty?
 
         @secret = secret
       end
@@ -38,7 +38,7 @@ module Philiprehberger
 
       def compute_signature(payload, timestamp)
         message = "#{timestamp}.#{payload}"
-        OpenSSL::HMAC.hexdigest("SHA256", @secret, message)
+        OpenSSL::HMAC.hexdigest('SHA256', @secret, message)
       end
     end
   end

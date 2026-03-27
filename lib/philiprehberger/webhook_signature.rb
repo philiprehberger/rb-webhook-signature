@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require_relative "webhook_signature/version"
-require_relative "webhook_signature/signer"
-require_relative "webhook_signature/verifier"
+require_relative 'webhook_signature/version'
+require_relative 'webhook_signature/signer'
+require_relative 'webhook_signature/verifier'
 
 module Philiprehberger
   module WebhookSignature

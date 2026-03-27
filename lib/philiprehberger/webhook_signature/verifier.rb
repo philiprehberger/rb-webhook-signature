@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "openssl"
+require 'openssl'
 
 module Philiprehberger
   module WebhookSignature
@@ -10,7 +10,7 @@ module Philiprehberger
 
       # @param secret [String] the shared secret key
       def initialize(secret)
-        raise ArgumentError, "Secret must be a non-empty string" if secret.nil? || secret.empty?
+        raise ArgumentError, 'Secret must be a non-empty string' if secret.nil? || secret.empty?
 
         @secret = secret
       end
@@ -53,7 +53,7 @@ module Philiprehberger
         end
 
         expected = compute_signature(payload, timestamp)
-        raise VerificationError, "Signature mismatch" unless secure_compare(expected, signature)
+        raise VerificationError, 'Signature mismatch' unless secure_compare(expected, signature)
 
         true
       end
@@ -67,7 +67,7 @@ module Philiprehberger
       # @return [true]
       def verify_header!(payload, header:, tolerance: DEFAULT_TOLERANCE)
         parsed = parse_header(header)
-        raise VerificationError, "Invalid header format" unless parsed
+        raise VerificationError, 'Invalid header format' unless parsed
 
         verify!(payload, timestamp: parsed[:timestamp], signature: parsed[:signature], tolerance: tolerance)
       end
@@ -98,7 +98,7 @@ module Philiprehberger
 
       def compute_signature(payload, timestamp)
         message = "#{timestamp}.#{payload}"
-        OpenSSL::HMAC.hexdigest("SHA256", @secret, message)
+        OpenSSL::HMAC.hexdigest('SHA256', @secret, message)
       end
 
       def stale?(timestamp, tolerance)
@@ -113,15 +113,15 @@ module Philiprehberger
 
       def parse_header(header)
         parts = {}
-        header.split(",").each do |part|
-          key, value = part.split("=", 2)
+        header.split(',').each do |part|
+          key, value = part.split('=', 2)
           next unless value
 
           parts[key] = value
         end
 
-        timestamp = parts["t"]&.to_i
-        signature = parts["v1"]
+        timestamp = parts['t']&.to_i
+        signature = parts['v1']
 
         return nil unless timestamp && signature
 
