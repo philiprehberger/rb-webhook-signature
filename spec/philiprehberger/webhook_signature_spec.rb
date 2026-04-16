@@ -295,3 +295,112 @@ RSpec.describe Philiprehberger::WebhookSignature::Verifier do
     end
   end
 end
+
+RSpec.describe 'Algorithm selection' do
+  let(:secret) { 'test_secret' }
+  let(:payload) { 'hello payload' }
+  let(:timestamp) { 1_710_000_000 }
+
+  describe 'default algorithm (:sha256)' do
+    it 'produces a 64-char hex signature unchanged from prior releases' do
+      signer = Philiprehberger::WebhookSignature::Signer.new(secret)
+      result = signer.sign(payload, timestamp: timestamp)
+      expect(result[:signature].length).to eq(64)
+    end
+
+    it 'matches the explicit :sha256 signer byte-for-byte' do
+      default_sig = Philiprehberger::WebhookSignature::Signer.new(secret)
+                                                             .sign(payload, timestamp: timestamp)[:signature]
+      explicit_sig = Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :sha256)
+                                                              .sign(payload, timestamp: timestamp)[:signature]
+      expect(default_sig).to eq(explicit_sig)
+    end
+  end
+
+  describe ':sha512 round-trip' do
+    it 'produces a 128-char hex signature and verifies successfully' do
+      signer = Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :sha512)
+      verifier = Philiprehberger::WebhookSignature::Verifier.new(secret, algorithm: :sha512)
+
+      result = signer.sign(payload, timestamp: timestamp)
+      expect(result[:signature].length).to eq(128)
+      expect(
+        verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature], tolerance: nil)
+      ).to be true
+    end
+
+    it 'round-trips through module-level helpers' do
+      result = Philiprehberger::WebhookSignature.sign(
+        payload, secret: secret, timestamp: timestamp, algorithm: :sha512
+      )
+      valid = Philiprehberger::WebhookSignature.verify(
+        payload,
+        secret: secret,
+        timestamp: result[:timestamp],
+        signature: result[:signature],
+        tolerance: nil,
+        algorithm: :sha512
+      )
+      expect(valid).to be true
+    end
+  end
+
+  describe 'cross-algorithm rejection' do
+    it 'rejects a :sha512 signature when verifier is :sha256' do
+      signer = Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :sha512)
+      verifier = Philiprehberger::WebhookSignature::Verifier.new(secret, algorithm: :sha256)
+
+      result = signer.sign(payload, timestamp: timestamp)
+      expect(
+        verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature], tolerance: nil)
+      ).to be false
+    end
+
+    it 'rejects a :sha256 signature when verifier is :sha512' do
+      signer = Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :sha256)
+      verifier = Philiprehberger::WebhookSignature::Verifier.new(secret, algorithm: :sha512)
+
+      result = signer.sign(payload, timestamp: timestamp)
+      expect(
+        verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature], tolerance: nil)
+      ).to be false
+    end
+
+    it 'produces different digest bytes across algorithms' do
+      sha256 = Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :sha256)
+                                                        .sign(payload, timestamp: timestamp)[:signature]
+      sha512 = Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :sha512)
+                                                        .sign(payload, timestamp: timestamp)[:signature]
+      expect(sha256).not_to eq(sha512)
+      expect(sha256.length).not_to eq(sha512.length)
+    end
+  end
+
+  describe 'invalid algorithm' do
+    it 'raises ArgumentError from Signer' do
+      expect do
+        Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :md5)
+      end.to raise_error(ArgumentError, /Unsupported algorithm.*sha256.*sha512/m)
+    end
+
+    it 'raises ArgumentError from Verifier' do
+      expect do
+        Philiprehberger::WebhookSignature::Verifier.new(secret, algorithm: :sha1)
+      end.to raise_error(ArgumentError, /Unsupported algorithm.*sha256.*sha512/m)
+    end
+
+    it 'raises ArgumentError from module-level sign' do
+      expect do
+        Philiprehberger::WebhookSignature.sign(payload, secret: secret, algorithm: :bogus)
+      end.to raise_error(ArgumentError, /Unsupported algorithm/)
+    end
+
+    it 'raises ArgumentError from module-level verify' do
+      expect do
+        Philiprehberger::WebhookSignature.verify(
+          payload, secret: secret, timestamp: timestamp, signature: 'x', algorithm: :bogus
+        )
+      end.to raise_error(ArgumentError, /Unsupported algorithm/)
+    end
+  end
+end

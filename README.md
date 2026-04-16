@@ -79,6 +79,27 @@ verifier.valid?(payload, timestamp: ts, signature: sig)
 verifier.valid_header?(payload, header: "t=1710000000,v1=a1b2c3...")
 ```
 
+### Choosing an HMAC Algorithm
+
+```ruby
+# Default is :sha256 — existing code is unaffected
+signer = Philiprehberger::WebhookSignature::Signer.new(secret)
+
+# Opt in to SHA-512 for a longer digest
+signer = Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :sha512)
+verifier = Philiprehberger::WebhookSignature::Verifier.new(secret, algorithm: :sha512)
+
+# Or via the module-level helpers
+Philiprehberger::WebhookSignature.sign(payload, secret: secret, algorithm: :sha512)
+Philiprehberger::WebhookSignature.verify(
+  payload, secret: secret, timestamp: ts, signature: sig, algorithm: :sha512
+)
+
+# Unsupported values raise ArgumentError listing the supported symbols
+Philiprehberger::WebhookSignature::Signer.new(secret, algorithm: :md5)
+# => ArgumentError: Unsupported algorithm: :md5. Supported algorithms: :sha256, :sha512
+```
+
 ### Replay Prevention
 
 ```ruby
@@ -99,12 +120,12 @@ verifier.verify(payload, timestamp: ts, signature: sig, tolerance: nil)
 
 | Method / Class | Description |
 |----------------|-------------|
-| `WebhookSignature.sign(payload, secret:, timestamp:)` | Sign a payload |
-| `WebhookSignature.verify(payload, secret:, timestamp:, signature:, tolerance:)` | Verify a payload |
-| `Signer.new(secret)` | Create a signer |
+| `WebhookSignature.sign(payload, secret:, timestamp:, algorithm:)` | Sign a payload |
+| `WebhookSignature.verify(payload, secret:, timestamp:, signature:, tolerance:, algorithm:)` | Verify a payload |
+| `Signer.new(secret, algorithm:)` | Create a signer (algorithm defaults to `:sha256`; `:sha512` also supported) |
 | `Signer#sign(payload, timestamp:)` | Sign, returns hash |
 | `Signer#sign_header(payload, timestamp:)` | Sign, returns header string |
-| `Verifier.new(secret)` | Create a verifier |
+| `Verifier.new(secret, algorithm:)` | Create a verifier (algorithm defaults to `:sha256`; `:sha512` also supported) |
 | `Verifier#verify(payload, timestamp:, signature:, tolerance:)` | Verify, returns boolean |
 | `Verifier#verify_header(payload, header:, tolerance:)` | Verify a header string |
 | `Verifier#verify!(payload, timestamp:, signature:, tolerance:)` | Verify or raise |
