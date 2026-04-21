@@ -5,13 +5,26 @@ require 'time'
 
 module Philiprehberger
   module WebhookSignature
-    # Signs payloads with HMAC-SHA256 and a timestamp for replay prevention.
+    # Signs payloads with HMAC and a timestamp for replay prevention.
     class Signer
+      SUPPORTED_ALGORITHMS = {
+        sha256: 'SHA256',
+        sha512: 'SHA512'
+      }.freeze
+
       # @param secret [String] the shared secret key
-      def initialize(secret)
+      # @param algorithm [Symbol] HMAC digest algorithm (:sha256 or :sha512)
+      def initialize(secret, algorithm: :sha256)
         raise ArgumentError, 'Secret must be a non-empty string' if secret.nil? || secret.empty?
 
+        unless SUPPORTED_ALGORITHMS.key?(algorithm)
+          raise ArgumentError,
+                "Unsupported algorithm: #{algorithm.inspect}. Supported algorithms: #{SUPPORTED_ALGORITHMS.keys.map(&:inspect).join(', ')}"
+        end
+
         @secret = secret
+        @algorithm = algorithm
+        @digest_name = SUPPORTED_ALGORITHMS.fetch(algorithm)
       end
 
       # Sign a payload.
@@ -38,7 +51,7 @@ module Philiprehberger
 
       def compute_signature(payload, timestamp)
         message = "#{timestamp}.#{payload}"
-        OpenSSL::HMAC.hexdigest('SHA256', @secret, message)
+        OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new(@digest_name), @secret, message)
       end
     end
   end

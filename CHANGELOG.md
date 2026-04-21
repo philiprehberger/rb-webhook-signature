@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-16
+
+### Added
+- `algorithm:` keyword argument on `Signer.new` and `Verifier.new` selects the HMAC digest (`:sha256` default, `:sha512` supported)
+- `Philiprehberger::WebhookSignature.sign` / `.verify` accept the same `algorithm:` keyword and pass it through
+- Unsupported algorithm values raise `ArgumentError` listing the supported symbols
+- Cross-algorithm signatures are rejected during verification
+
 ## [0.2.8] - 2026-03-31
 
 ### Added

@@ -4,15 +4,28 @@ require 'openssl'
 
 module Philiprehberger
   module WebhookSignature
-    # Verifies HMAC-SHA256 webhook signatures with replay prevention.
+    # Verifies HMAC webhook signatures with replay prevention.
     class Verifier
       DEFAULT_TOLERANCE = 300 # 5 minutes
 
+      SUPPORTED_ALGORITHMS = {
+        sha256: 'SHA256',
+        sha512: 'SHA512'
+      }.freeze
+
       # @param secret [String] the shared secret key
-      def initialize(secret)
+      # @param algorithm [Symbol] HMAC digest algorithm (:sha256 or :sha512)
+      def initialize(secret, algorithm: :sha256)
         raise ArgumentError, 'Secret must be a non-empty string' if secret.nil? || secret.empty?
 
+        unless SUPPORTED_ALGORITHMS.key?(algorithm)
+          raise ArgumentError,
+                "Unsupported algorithm: #{algorithm.inspect}. Supported algorithms: #{SUPPORTED_ALGORITHMS.keys.map(&:inspect).join(', ')}"
+        end
+
         @secret = secret
+        @algorithm = algorithm
+        @digest_name = SUPPORTED_ALGORITHMS.fetch(algorithm)
       end
 
       # Verify a payload against a signature.
@@ -98,7 +111,7 @@ module Philiprehberger
 
       def compute_signature(payload, timestamp)
         message = "#{timestamp}.#{payload}"
-        OpenSSL::HMAC.hexdigest('SHA256', @secret, message)
+        OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new(@digest_name), @secret, message)
       end
 
       def stale?(timestamp, tolerance)
