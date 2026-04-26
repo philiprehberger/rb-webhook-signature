@@ -294,6 +294,46 @@ RSpec.describe Philiprehberger::WebhookSignature::Verifier do
       expect(verifier.verify_header(payload, header: '')).to be false
     end
   end
+
+  describe 'with multiple secrets' do
+    let(:first_secret) { 'new_secret_v2' }
+    let(:second_secret) { 'old_secret_v1' }
+    let(:rotation_verifier) { described_class.new(secrets: [first_secret, second_secret]) }
+
+    it 'verifies a signature created with the first secret' do
+      result = Philiprehberger::WebhookSignature::Signer.new(first_secret)
+                                                        .sign(payload, timestamp: Time.now.to_i)
+      expect(
+        rotation_verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature])
+      ).to be true
+    end
+
+    it 'verifies a signature created with the second secret (key rotation case)' do
+      result = Philiprehberger::WebhookSignature::Signer.new(second_secret)
+                                                        .sign(payload, timestamp: Time.now.to_i)
+      expect(
+        rotation_verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature])
+      ).to be true
+    end
+
+    it 'rejects a signature created with an unrelated secret' do
+      result = Philiprehberger::WebhookSignature::Signer.new('unrelated_secret')
+                                                        .sign(payload, timestamp: Time.now.to_i)
+      expect(
+        rotation_verifier.verify(payload, timestamp: result[:timestamp], signature: result[:signature])
+      ).to be false
+    end
+
+    it 'raises ArgumentError when both secret: and secrets: are provided' do
+      expect do
+        described_class.new('a', secrets: %w[b c])
+      end.to raise_error(ArgumentError, /both/)
+    end
+
+    it 'raises ArgumentError when neither secret: nor secrets: is provided' do
+      expect { described_class.new }.to raise_error(ArgumentError)
+    end
+  end
 end
 
 RSpec.describe 'Algorithm selection' do

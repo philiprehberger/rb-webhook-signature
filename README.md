@@ -79,6 +79,19 @@ verifier.valid?(payload, timestamp: ts, signature: sig)
 verifier.valid_header?(payload, header: "t=1710000000,v1=a1b2c3...")
 ```
 
+### Key Rotation
+
+```ruby
+require "philiprehberger/webhook_signature"
+
+verifier = Philiprehberger::WebhookSignature::Verifier.new(
+  secrets: ['new_secret', 'old_secret']
+)
+
+# Accepts signatures created with EITHER secret
+verifier.verify(payload, signature)
+```
+
 ### Choosing an HMAC Algorithm
 
 ```ruby
@@ -126,6 +139,7 @@ verifier.verify(payload, timestamp: ts, signature: sig, tolerance: nil)
 | `Signer#sign(payload, timestamp:)` | Sign, returns hash |
 | `Signer#sign_header(payload, timestamp:)` | Sign, returns header string |
 | `Verifier.new(secret, algorithm:)` | Create a verifier (algorithm defaults to `:sha256`; `:sha512` also supported) |
+| `Verifier.new(secret:)` / `Verifier.new(secrets:)` | Single secret or Array of secrets for key rotation |
 | `Verifier#verify(payload, timestamp:, signature:, tolerance:)` | Verify, returns boolean |
 | `Verifier#verify_header(payload, header:, tolerance:)` | Verify a header string |
 | `Verifier#verify!(payload, timestamp:, signature:, tolerance:)` | Verify or raise |

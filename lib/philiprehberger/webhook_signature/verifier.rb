@@ -13,17 +13,35 @@ module Philiprehberger
         sha512: 'SHA512'
       }.freeze
 
-      # @param secret [String] the shared secret key
+      # @param secret [String, nil] the shared secret key (single-secret form)
       # @param algorithm [Symbol] HMAC digest algorithm (:sha256 or :sha512)
-      def initialize(secret, algorithm: :sha256)
-        raise ArgumentError, 'Secret must be a non-empty string' if secret.nil? || secret.empty?
+      # @param secrets [Array<String>, nil] an Array of shared secrets to support key rotation
+      def initialize(secret = nil, algorithm: :sha256, secrets: nil)
+        if !secret.nil? && !secrets.nil?
+          raise ArgumentError, 'Provide either secret: or secrets:, not both'
+        end
+
+        resolved = if secrets.nil?
+                     raise ArgumentError, 'Secret must be a non-empty string' if secret.nil? || secret.empty?
+
+                     [secret]
+                   else
+                     unless secrets.is_a?(Array) && !secrets.empty?
+                       raise ArgumentError, 'secrets must be a non-empty Array of strings'
+                     end
+                     if secrets.any? { |s| s.nil? || s.empty? }
+                       raise ArgumentError, 'Each secret must be a non-empty string'
+                     end
+
+                     secrets
+                   end
 
         unless SUPPORTED_ALGORITHMS.key?(algorithm)
           raise ArgumentError,
                 "Unsupported algorithm: #{algorithm.inspect}. Supported algorithms: #{SUPPORTED_ALGORITHMS.keys.map(&:inspect).join(', ')}"
         end
 
-        @secret = secret
+        @secrets = resolved
         @algorithm = algorithm
         @digest_name = SUPPORTED_ALGORITHMS.fetch(algorithm)
       end
@@ -38,8 +56,7 @@ module Philiprehberger
       def verify(payload, timestamp:, signature:, tolerance: DEFAULT_TOLERANCE)
         return false if tolerance && stale?(timestamp, tolerance)
 
-        expected = compute_signature(payload, timestamp)
-        secure_compare(expected, signature)
+        @secrets.any? { |s| signature_matches?(payload, timestamp, signature, s) }
       end
 
       # Verify a signature header string.
@@ -65,8 +82,9 @@ module Philiprehberger
           raise VerificationError, "Signature timestamp is too old (tolerance: #{tolerance}s)"
         end
 
-        expected = compute_signature(payload, timestamp)
-        raise VerificationError, 'Signature mismatch' unless secure_compare(expected, signature)
+        unless @secrets.any? { |s| signature_matches?(payload, timestamp, signature, s) }
+          raise VerificationError, 'Signature mismatch'
+        end
 
         true
       end
@@ -109,9 +127,14 @@ module Philiprehberger
 
       private
 
-      def compute_signature(payload, timestamp)
+      def signature_matches?(payload, timestamp, signature, secret)
+        expected = compute_signature(payload, timestamp, secret)
+        secure_compare(expected, signature)
+      end
+
+      def compute_signature(payload, timestamp, secret)
         message = "#{timestamp}.#{payload}"
-        OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new(@digest_name), @secret, message)
+        OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new(@digest_name), secret, message)
       end
 
       def stale?(timestamp, tolerance)
